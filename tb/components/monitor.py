@@ -1,20 +1,29 @@
 import cocotb
 from pyuvm import uvm_monitor, uvm_analysis_port
-from cocotb.triggers import Timer
-from tb.sequences.sequence_item import ALUSeqItem
+from cocotb.triggers import RisingEdge
+from tb.sequences.sequence_item import FIFOSeqItem
 
-class ALUMonitor(uvm_monitor):
+
+class FIFOMonitor(uvm_monitor):
+
     def build_phase(self):
         self.ap  = uvm_analysis_port("ap", self)
         self.dut = cocotb.top
 
     async def run_phase(self):
         while True:
-            await Timer(1, unit="ns")
-            item        = ALUSeqItem("observed")
-            item.opcode = int(self.dut.opcode.value)
-            item.a      = int(self.dut.a.value)
-            item.b      = int(self.dut.b.value)
-            item.result = int(self.dut.result.value)
-            item.zero   = int(self.dut.zero.value)
+            await RisingEdge(self.dut.clk)
+
+            item = FIFOSeqItem("observed")
+
+            # Inputs
+            item.write_en = int(self.dut.write_en.value)
+            item.read_en  = int(self.dut.read_en.value)
+            item.data_in  = int(self.dut.data_in.value)
+
+            # Outputs
+            item.data_out = int(self.dut.data_out.value)
+            item.full     = int(self.dut.full.value)
+            item.empty    = int(self.dut.empty.value)
+
             self.ap.write(item)
