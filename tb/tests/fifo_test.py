@@ -32,7 +32,7 @@ class FIFOTest(uvm_test):
 async def run_test(dut):
 
     # 🔥 ADD CLOCK
-    clock = Clock(dut.clk, 10, units="ns")
+    clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
     # Optional reset stabilization
