@@ -6,11 +6,18 @@ df = pd.read_csv("prioritized_tests.csv")
 
 print("Original size:", len(df))
 
-#  features for clustering
-X = df[['opcode', 'a_type', 'b_type', 'predicted_gain']]
+# Encode categorical features
+state_map = {"EMPTY": 0, "MID": 1, "FULL": 2}
+type_map  = {"ZERO": 0, "SMALL": 1, "LARGE": 2, "NEG": 3}
 
-# Number of clusters (min 50, dont keep too high it wont reduce)
-k = 135
+df['fifo_state'] = df['fifo_state'].map(state_map)
+df['data_type']  = df['data_type'].map(type_map)
+
+# Features for clustering
+X = df[['write_en', 'read_en', 'fifo_state', 'data_type', 'predicted_gain']]
+
+# Number of clusters
+k = 50
 
 kmeans = KMeans(n_clusters=k, random_state=42)
 df['cluster'] = kmeans.fit_predict(X)
