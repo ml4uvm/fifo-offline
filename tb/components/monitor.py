@@ -10,30 +10,31 @@ class FIFOMonitor(uvm_monitor):
         self.ap  = uvm_analysis_port("ap", self)
         self.dut = cocotb.top
 
-        # store previous cycle read_en
-        self.prev_read_en = 0
+        # pipeline register
+        self.prev_item = None
 
     async def run_phase(self):
         while True:
             await RisingEdge(self.dut.clk)
 
-            item = FIFOSeqItem("observed")
+            curr = FIFOSeqItem("curr")
 
-            # Capture current cycle signals
-            item.write_en = int(self.dut.write_en.value)
-            item.read_en  = int(self.dut.read_en.value)
-            item.data_in  = int(self.dut.data_in.value)
+            curr.write_en = int(self.dut.write_en.value)
+            curr.read_en  = int(self.dut.read_en.value)
+            curr.data_in  = int(self.dut.data_in.value)
 
-            item.full  = int(self.dut.full.value)
-            item.empty = int(self.dut.empty.value)
+            curr.full  = int(self.dut.full.value)
+            curr.empty = int(self.dut.empty.value)
 
-            # 🔥 data_out corresponds to PREVIOUS cycle read
-            if self.prev_read_en:
-                item.data_out = int(self.dut.data_out.value)
-            else:
-                item.data_out = 0  # or ignore
+            # data_out belongs to PREVIOUS cycle
+            curr.data_out = int(self.dut.data_out.value)
 
-            # update for next cycle
-            self.prev_read_en = item.read_en
+            # --------------------------------
+            # Send PREVIOUS cycle transaction
+            # --------------------------------
+            if self.prev_item is not None:
+                self.prev_item.data_out = curr.data_out
+                self.ap.write(self.prev_item)
 
-            self.ap.write(item)
+            # store current for next cycle
+            self.prev_item = curr
