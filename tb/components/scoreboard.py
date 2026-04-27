@@ -21,13 +21,19 @@ class FIFOScoreboard(uvm_component):
         empty    = item.empty
 
         # ----------------------------
-        # WRITE operation
+        # UNDERFLOW check (informational)
         # ----------------------------
-        if write_en and not full:
-            self.queue.append(data_in)
+        if read_en and empty:
+            print("[WARNING] FIFO UNDERFLOW attempted")
 
         # ----------------------------
-        # READ operation
+        # OVERFLOW check (informational)
+        # ----------------------------
+        if write_en and full:
+            print("[WARNING] FIFO OVERFLOW attempted")
+
+        # ----------------------------
+        # READ FIRST (CRITICAL FIX)
         # ----------------------------
         if read_en and not empty:
             assert len(self.queue) > 0, "Queue underflow in model!"
@@ -40,13 +46,7 @@ class FIFOScoreboard(uvm_component):
             )
 
         # ----------------------------
-        # OVERFLOW check
+        # THEN WRITE
         # ----------------------------
-        if write_en and full:
-            print("[WARNING] FIFO OVERFLOW attempted")
-
-        # ----------------------------
-        # UNDERFLOW check
-        # ----------------------------
-        if read_en and empty:
-            print("[WARNING] FIFO UNDERFLOW attempted")
+        if write_en and not full:
+            self.queue.append(data_in)
