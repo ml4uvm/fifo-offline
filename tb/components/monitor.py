@@ -14,16 +14,26 @@ class FIFOMonitor(uvm_monitor):
         while True:
             await RisingEdge(self.dut.clk)
 
+            # Capture inputs at this cycle
+            write_en = int(self.dut.write_en.value)
+            read_en  = int(self.dut.read_en.value)
+            data_in  = int(self.dut.data_in.value)
+
+            full  = int(self.dut.full.value)
+            empty = int(self.dut.empty.value)
+
+            # 🔥 If read, data_out is valid NEXT cycle
+            if read_en:
+                await RisingEdge(self.dut.clk)
+
             item = FIFOSeqItem("observed")
 
-            # Inputs
-            item.write_en = int(self.dut.write_en.value)
-            item.read_en  = int(self.dut.read_en.value)
-            item.data_in  = int(self.dut.data_in.value)
+            item.write_en = write_en
+            item.read_en  = read_en
+            item.data_in  = data_in
 
-            # Outputs
             item.data_out = int(self.dut.data_out.value)
-            item.full     = int(self.dut.full.value)
-            item.empty    = int(self.dut.empty.value)
+            item.full     = full
+            item.empty    = empty
 
             self.ap.write(item)
