@@ -10,30 +10,30 @@ class FIFOMonitor(uvm_monitor):
         self.ap  = uvm_analysis_port("ap", self)
         self.dut = cocotb.top
 
+        # store previous cycle read_en
+        self.prev_read_en = 0
+
     async def run_phase(self):
         while True:
             await RisingEdge(self.dut.clk)
 
-            # Capture inputs at this cycle
-            write_en = int(self.dut.write_en.value)
-            read_en  = int(self.dut.read_en.value)
-            data_in  = int(self.dut.data_in.value)
-
-            full  = int(self.dut.full.value)
-            empty = int(self.dut.empty.value)
-
-            # 🔥 If read, data_out is valid NEXT cycle
-            if read_en:
-                await RisingEdge(self.dut.clk)
-
             item = FIFOSeqItem("observed")
 
-            item.write_en = write_en
-            item.read_en  = read_en
-            item.data_in  = data_in
+            # Capture current cycle signals
+            item.write_en = int(self.dut.write_en.value)
+            item.read_en  = int(self.dut.read_en.value)
+            item.data_in  = int(self.dut.data_in.value)
 
-            item.data_out = int(self.dut.data_out.value)
-            item.full     = full
-            item.empty    = empty
+            item.full  = int(self.dut.full.value)
+            item.empty = int(self.dut.empty.value)
+
+            # 🔥 data_out corresponds to PREVIOUS cycle read
+            if self.prev_read_en:
+                item.data_out = int(self.dut.data_out.value)
+            else:
+                item.data_out = 0  # or ignore
+
+            # update for next cycle
+            self.prev_read_en = item.read_en
 
             self.ap.write(item)
