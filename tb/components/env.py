@@ -1,105 +1,125 @@
 import os, csv
 from pyuvm import uvm_env, uvm_agent, uvm_sequencer
 from pyuvm.s12_uvm_tlm_interfaces import uvm_analysis_export
-from tb.components.driver import ALUDriver
-from tb.components.monitor import ALUMonitor
-from tb.components.scoreboard import ALUScoreboard
-
-#  ML COVERAGE HELPERS
-def to_signed(x):
-    if x >= 2**31:
-        return x - 2**32
-    return x
+from tb.components.driver import FIFODriver
+from tb.components.monitor import FIFOMonitor
+from tb.components.scoreboard import FIFOScoreboard
 
 
-def classify_operand(x):
-    x = to_signed(x)   # 🔥 IMPORTANT FIX
+# ===============================
+# FIFO COVERAGE HELPERS
+# ===============================
 
-    if x == 0:
-        return "ZERO"
-    elif x < 0:
-        return "NEG"
-    elif 0 < x < 10:
-        return "SMALL"
+def get_fifo_state(full, empty):
+    if empty:
+        return "EMPTY"
+    elif full:
+        return "FULL"
     else:
-        return "LARGE"
+        return "MID"
 
 
-def get_bin(opcode, a, b):
-    return (opcode, classify_operand(a), classify_operand(b))
+# ✅ FIXED BIN DEFINITION (48 bins)
+def get_bin(write_en, read_en, state, data_type):
+    return (write_en, read_en, state, data_type)
 
 
-TOTAL_BINS = 8 * 4 * 4  # opcode × a_type × b_type
+TOTAL_BINS = 2 * 2 * 3 * 4  # = 48
 covered_bins = set()
 
+
+# ===============================
 # COVERAGE + CSV LOGGER
+# ===============================
 class CoverageExport(uvm_analysis_export):
 
     def build_phase(self):
-        # bind write method (required for pyuvm)
         self.write = self.write
 
     def start_of_simulation_phase(self):
         os.makedirs("results", exist_ok=True)
-        self.log_file = open("results/coverage_log.csv", "w", newline="")
+        self.log_file = open("results/fifo_coverage_log.csv", "w", newline="")
         self.writer   = csv.writer(self.log_file)
 
-        # UPDATED CSV HEADER
         self.writer.writerow([
-            "opcode", "a_type", "b_type",
-            "result", "zero",
-            "cov_gain", "gain_label"
+            "write_en",
+            "read_en",
+            "fifo_state",
+            "data_type",
+            "overflow",
+            "underflow",
+            "cov_gain",
+            "gain_label"
         ])
 
     def write(self, item):
 
-        current_bin = get_bin(item.opcode, item.a, item.b)
+        fifo_state = get_fifo_state(item.full, item.empty)
+
+        # ✅ LABELS (NOT PART OF BIN)
+        overflow  = int(item.write_en == 1 and item.full == 1)
+        underflow = int(item.read_en  == 1 and item.empty == 1)
+
+        # ✅ FIXED BIN (NO overflow/underflow here)
+        current_bin = get_bin(
+            item.write_en,
+            item.read_en,
+            fifo_state,
+            item.data_type
+        )
 
         # coverage before
-        old_cov = (len(covered_bins) / TOTAL_BINS) * 100
+        old_cov = len(covered_bins)
 
         # add bin
         covered_bins.add(current_bin)
 
         # coverage after
-        new_cov = (len(covered_bins) / TOTAL_BINS) * 100
+        new_cov = len(covered_bins)
 
         coverage_gain = new_cov - old_cov
 
-        # NEW LINE (ML label)
         gain_label = 1 if coverage_gain > 0 else 0
 
         self.writer.writerow([
-            item.opcode,
-            classify_operand(item.a),
-            classify_operand(item.b),
-            item.result,
-            item.zero,
+            item.write_en,
+            item.read_en,
+            fifo_state,
+            item.data_type,
+            overflow,
+            underflow,
             coverage_gain,
             gain_label
         ])
+
     def final_phase(self):
         self.log_file.close()
         print(f"Coverage: {len(covered_bins)}/{TOTAL_BINS} bins hit")
 
-#  AGENT
-class ALUAgent(uvm_agent):
+
+# ===============================
+# AGENT
+# ===============================
+class FIFOAgent(uvm_agent):
 
     def build_phase(self):
         self.seqr    = uvm_sequencer("seqr", self)
-        self.driver  = ALUDriver("driver", self)
-        self.monitor = ALUMonitor("monitor", self)
+        self.driver  = FIFODriver("driver", self)
+        self.monitor = FIFOMonitor("monitor", self)
 
     def connect_phase(self):
         self.driver.seq_item_port.connect(self.seqr.seq_item_export)
 
-#  ENVIRONMENT
-class ALUEnv(uvm_env):
+
+# ===============================
+# ENVIRONMENT
+# ===============================
+class FIFOEnv(uvm_env):
 
     def build_phase(self):
-        self.agent      = ALUAgent("agent", self)
+        self.agent      = FIFOAgent("agent", self)
         self.cov_export = CoverageExport("cov_export", self)
-        self.scoreboard = ALUScoreboard("scoreboard", self)
+        self.scoreboard = FIFOScoreboard("scoreboard", self)
 
     def connect_phase(self):
         # Monitor → Coverage (ML data)
