@@ -2,24 +2,24 @@ import pandas as pd
 import os
 import random
 from pyuvm import uvm_sequence
-from tb.sequences.sequence_item import ALUSeqItem
+from tb.sequences.sequence_item import FIFOSeqItem
 
 
-class ALUSequence(uvm_sequence):
+class FIFOSequence(uvm_sequence):
 
-    def __init__(self, name="ALUSequence", num_tests=300, use_ml=False):
+    def __init__(self, name="FIFOSequence", num_tests=300, use_ml=False):
         super().__init__(name)
         self.num_tests = num_tests
         self.use_ml = use_ml
 
-    # ADD THIS FUNCTION
+    # Same idea as ALU, but only for data_in
     def generate_value(self, t):
         if t == "ZERO":
             return 0
         elif t == "SMALL":
             return random.randint(1, 9)
         elif t == "LARGE":
-            return random.randint(100, 100)
+            return random.randint(200, 255)
         elif t == "NEG":
             return random.randint(-20, -1)
 
@@ -45,17 +45,16 @@ class ALUSequence(uvm_sequence):
             }
 
             for _, row in df.iterrows():
-                item = ALUSeqItem("item")
+                item = FIFOSeqItem("item")
 
-                item.opcode = int(row['opcode'])
+                # Control signals directly from ML
+                item.write_en = int(row['write_en'])
+                item.read_en  = int(row['read_en'])
 
-                a_type = reverse_map[int(row['a_type'])]
-                b_type = reverse_map[int(row['b_type'])]
-
-                item.a = self.generate_value(a_type)
-                item.b = self.generate_value(b_type)
-
-               # print("ML INPUT:", item.opcode, item.a, item.b)
+                # Data type → actual value
+                data_type = reverse_map[int(row['data_type'])]
+                item.data_type = data_type
+                item.data_in = self.generate_value(data_type)
 
                 await self.start_item(item)
                 await self.finish_item(item)
@@ -68,7 +67,7 @@ class ALUSequence(uvm_sequence):
             print(f"[BASELINE MODE] Running {self.num_tests} random tests")
 
             for _ in range(self.num_tests):
-                item = ALUSeqItem("item")
+                item = FIFOSeqItem("item")
                 item.randomize()
 
                 await self.start_item(item)
