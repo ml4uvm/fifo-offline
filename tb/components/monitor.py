@@ -10,7 +10,6 @@ class FIFOMonitor(uvm_monitor):
         self.ap  = uvm_analysis_port("ap", self)
         self.dut = cocotb.top
 
-        # pipeline register
         self.prev_item = None
 
     async def run_phase(self):
@@ -26,15 +25,17 @@ class FIFOMonitor(uvm_monitor):
             curr.full  = int(self.dut.full.value)
             curr.empty = int(self.dut.empty.value)
 
-            # data_out belongs to PREVIOUS cycle
+            #debug print statement
+            #print(
+            #f"MONITOR: WE={curr.write_en} RE={curr.read_en} "
+            #f"DATA_IN={curr.data_in} FULL={curr.full} EMPTY={curr.empty}"
+            #)
+
             curr.data_out = int(self.dut.data_out.value)
 
-            # --------------------------------
-            # Send PREVIOUS cycle transaction
-            # --------------------------------
+            # send previous transaction (correct alignment)
             if self.prev_item is not None:
                 self.prev_item.data_out = curr.data_out
                 self.ap.write(self.prev_item)
 
-            # store current for next cycle
             self.prev_item = curr
