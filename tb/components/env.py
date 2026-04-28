@@ -19,7 +19,16 @@ def get_fifo_state(full, empty):
         return "MID"
 
 
-# ✅ FIXED BIN DEFINITION (48 bins)
+# 🔥 NEW: classify data_type from data_in
+def classify_data(x):
+    if x == 0:
+        return "ZERO"
+    elif 0 < x < 10:
+        return "SMALL"
+    else:
+        return "LARGE"
+
+
 def get_bin(write_en, read_en, state, data_type):
     return (write_en, read_en, state, data_type)
 
@@ -56,36 +65,31 @@ class CoverageExport(uvm_analysis_export):
 
         fifo_state = get_fifo_state(item.full, item.empty)
 
-        # ✅ LABELS (NOT PART OF BIN)
+        # 🔥 FIX: recompute data_type HERE (not from item)
+        data_type = classify_data(item.data_in)
+
         overflow  = int(item.write_en == 1 and item.full == 1)
         underflow = int(item.read_en  == 1 and item.empty == 1)
 
-        # ✅ FIXED BIN (NO overflow/underflow here)
         current_bin = get_bin(
             item.write_en,
             item.read_en,
             fifo_state,
-            item.data_type
+            data_type
         )
 
-        # coverage before
         old_cov = len(covered_bins)
-
-        # add bin
         covered_bins.add(current_bin)
-
-        # coverage after
         new_cov = len(covered_bins)
 
         coverage_gain = new_cov - old_cov
-
         gain_label = 1 if coverage_gain > 0 else 0
 
         self.writer.writerow([
             item.write_en,
             item.read_en,
             fifo_state,
-            item.data_type,
+            data_type,
             overflow,
             underflow,
             coverage_gain,
@@ -122,8 +126,5 @@ class FIFOEnv(uvm_env):
         self.scoreboard = FIFOScoreboard("scoreboard", self)
 
     def connect_phase(self):
-        # Monitor → Coverage (ML data)
         self.agent.monitor.ap.connect(self.cov_export)
-
-        # Monitor → Scoreboard (correctness)
         self.agent.monitor.ap.connect(self.scoreboard.analysis_export)
