@@ -4,8 +4,8 @@ Coverage-driven test case prioritization using ML (offline phase)
 
 Terminal-1:
 ````
-cd ~/ml4uvm/offline-ml/tb/tests
-gedit alu_test.py
+cd ~/ml4uvm/fifo-offline/tb/tests
+gedit fifo_test.py 
 change ml to baseline and vice versa
 
 cd ~/ml4uvm/offline-ml/ml:
