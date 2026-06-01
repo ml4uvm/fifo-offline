@@ -15,7 +15,7 @@ chnage cluster accordingly
 
 Terminal-2:
 ````
-cd ~/ml4uvm/offline-ml
+cd ~/ml4uvm/fifo-offline
 make clean
 make
 
