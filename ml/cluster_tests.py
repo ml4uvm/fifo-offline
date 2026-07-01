@@ -26,7 +26,7 @@ X = df[['write_en', 'read_en', 'fifo_state', 'data_type', 'predicted_gain']]
 # ============================================
 # 🔥 SAFE CLUSTER COUNT
 # ============================================
-k = min(20, len(df))  # prevents crash
+k = min(len(df), 35)
 
 kmeans = KMeans(n_clusters=k, random_state=42)
 df['cluster'] = kmeans.fit_predict(X)

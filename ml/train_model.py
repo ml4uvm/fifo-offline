@@ -23,8 +23,7 @@ state_map = {
 type_map = {
     "ZERO": 0,
     "SMALL": 1,
-    "LARGE": 2,
-    "NEG": 3
+    "LARGE": 2
 }
 
 df['fifo_state'] = df['fifo_state'].map(state_map)

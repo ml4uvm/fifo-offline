@@ -16,12 +16,12 @@ class FIFOTest(uvm_test):
         # =====================================================
         # BASELINE MODE (random)
         # =====================================================
-        seq = FIFOSequence("seq", num_tests=300, use_ml=False)
+        #seq = FIFOSequence("seq", num_tests=36, use_ml=False)
 
         # =====================================================
         # ML MODE (clustered testcases)
         # =====================================================
-        #seq = FIFOSequence("seq", use_ml=True)
+        seq = FIFOSequence("seq", use_ml=True)
 
         await seq.start(self.env.agent.seqr)
 

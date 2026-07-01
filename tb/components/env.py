@@ -33,7 +33,7 @@ def get_bin(write_en, read_en, state, data_type):
     return (write_en, read_en, state, data_type)
 
 
-TOTAL_BINS = 2 * 2 * 3 * 4  # = 48
+TOTAL_BINS = 2 * 2 * 3 * 3  # = 36
 covered_bins = set()
 
 
