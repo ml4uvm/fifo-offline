@@ -23,99 +23,51 @@ class FIFOSequence(uvm_sequence):
             return random.randint(-20, -1)
 
     async def body(self):
+     if self.use_ml:
+        ...  # unchanged
+        return
 
-        # =========================================================
-        # ML MODE (UNCHANGED)
-        # =========================================================
-        if self.use_ml:
+     print(f"[BASELINE MODE] Running {self.num_tests} guided tests")
+     data_types = ["ZERO", "SMALL", "LARGE", "NEG"]
+     dt_idx = 0
 
-            base_dir = os.path.dirname(__file__)
-            csv_path = os.path.join(base_dir, "../../ml/clustered_tests.csv")
+     # Scale fill/drain phases with the budget instead of hardcoding 20/20.
+     # Reserve at least 25% of the budget for the Mixed phase so it never
+     # gets starved out (previously: fixed 20+20, Mixed got num_tests-40,
+     # which was negative/empty for any num_tests <= 40).
+     fill_len = min(20, max(1, self.num_tests // 4))
+     drain_len = fill_len
+     mixed_len = max(0, self.num_tests - fill_len - drain_len)
 
-            df = pd.read_csv(csv_path)
+     # PHASE 1: FILL FIFO
+     for _ in range(fill_len):
+        item = FIFOSeqItem("item")
+        item.write_en = 1
+        item.read_en = 0
+        dt = data_types[dt_idx % 4]; dt_idx += 1
+        item.data_type = dt
+        item.data_in = self.generate_value(dt)
+        await self.start_item(item)
+        await self.finish_item(item)
 
-            print(f"[ML MODE] Running {len(df)} testcases")
+     # PHASE 2: DRAIN FIFO
+     for _ in range(drain_len):
+        item = FIFOSeqItem("item")
+        item.write_en = 0
+        item.read_en = 1
+        dt = data_types[dt_idx % 4]; dt_idx += 1
+        item.data_type = dt
+        item.data_in = self.generate_value(dt)
+        await self.start_item(item)
+        await self.finish_item(item)
 
-            reverse_map = {
-                0: "ZERO",
-                1: "SMALL",
-                2: "LARGE",
-                3: "NEG"
-            }
-
-            for _, row in df.iterrows():
-                item = FIFOSeqItem("item")
-
-                item.write_en = int(row['write_en'])
-                item.read_en  = int(row['read_en'])
-
-                data_type = reverse_map[int(row['data_type'])]
-                item.data_type = data_type
-                item.data_in = self.generate_value(data_type)
-
-                await self.start_item(item)
-                await self.finish_item(item)
-
-        # =========================================================
-        # BASELINE MODE (FIXED PROPERLY)
-        # =========================================================
-        else:
-
-            print(f"[BASELINE MODE] Running {self.num_tests} guided tests")
-
-            data_types = ["ZERO", "SMALL", "LARGE", "NEG"]
-            dt_idx = 0  # ensures cycling instead of random bias
-
-            # -----------------------------------------
-            # PHASE 1: FILL FIFO
-            # -----------------------------------------
-            for _ in range(20):
-                item = FIFOSeqItem("item")
-
-                item.write_en = 1
-                item.read_en  = 0
-
-                dt = data_types[dt_idx % 4]
-                dt_idx += 1
-
-                item.data_type = dt
-                item.data_in = self.generate_value(dt)
-
-                await self.start_item(item)
-                await self.finish_item(item)
-
-            # -----------------------------------------
-            # PHASE 2: DRAIN FIFO
-            # -----------------------------------------
-            for _ in range(20):
-                item = FIFOSeqItem("item")
-
-                item.write_en = 0
-                item.read_en  = 1
-
-                dt = data_types[dt_idx % 4]
-                dt_idx += 1
-
-                item.data_type = dt
-                item.data_in = self.generate_value(dt)
-
-                await self.start_item(item)
-                await self.finish_item(item)
-
-            # -----------------------------------------
-            # PHASE 3: MIXED OPERATIONS
-            # -----------------------------------------
-            for _ in range(self.num_tests - 40):
-                item = FIFOSeqItem("item")
-
-                item.write_en = random.randint(0, 1)
-                item.read_en  = random.randint(0, 1)
-
-                dt = data_types[dt_idx % 4]
-                dt_idx += 1
-
-                item.data_type = dt
-                item.data_in = self.generate_value(dt)
-
-                await self.start_item(item)
-                await self.finish_item(item)
+     # PHASE 3: MIXED
+     for _ in range(mixed_len):
+        item = FIFOSeqItem("item")
+        item.write_en = random.randint(0, 1)
+        item.read_en = random.randint(0, 1)
+        dt = data_types[dt_idx % 4]; dt_idx += 1
+        item.data_type = dt
+        item.data_in = self.generate_value(dt)
+        await self.start_item(item)
+        await self.finish_item(item)

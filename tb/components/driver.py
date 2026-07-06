@@ -9,35 +9,24 @@ class FIFODriver(uvm_driver):
         self.dut = cocotb.top
 
     async def run_phase(self):
-
-        # ----------------------------
-        # Reset sequence (IMPORTANT)
-        # ----------------------------
         self.dut.rst.value = 1
         self.dut.write_en.value = 0
-        self.dut.read_en.value  = 0
-        self.dut.data_in.value  = 0
-
+        self.dut.read_en.value = 0
+        self.dut.data_in.value = 0
         for _ in range(2):
             await RisingEdge(self.dut.clk)
-
         self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
 
-        # ----------------------------
-        # Main driver loop
-        # ----------------------------
         while True:
             item = await self.seq_item_port.get_next_item()
 
-            # Apply inputs on clock edge
-            await RisingEdge(self.dut.clk)
-
+            # Apply inputs right away — they'll be held stable until
+            # the next RisingEdge, which is when the DUT samples them.
             self.dut.write_en.value = item.write_en
-            self.dut.read_en.value  = item.read_en
-            self.dut.data_in.value  = item.data_in & 0xFF  # keep 8-bit
+            self.dut.read_en.value = item.read_en
+            self.dut.data_in.value = item.data_in & 0xFF
 
-            # Hold for one cycle
-            await RisingEdge(self.dut.clk)
+            await RisingEdge(self.dut.clk)   # <-- exactly one edge per item
 
             self.seq_item_port.item_done()
